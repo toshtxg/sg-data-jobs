@@ -1,46 +1,50 @@
-# SG AI Job Market Scout
+# SG Data & AI Job Pulse
 
-A Streamlit dashboard that tracks and analyzes Singapore's AI, data science, and analytics job market. Job listings are sourced from [MyCareersFuture.gov.sg](https://www.mycareersfuture.gov.sg/), classified using GPT-5-nano by default, and presented through interactive visualizations.
+A live look at Singapore's data, analytics, and AI job listings. Listings are sourced from [MyCareersFuture.gov.sg](https://www.mycareersfuture.gov.sg/), classified with GPT-5-nano, and surfaced through two front-ends.
 
-**Live app:** [sg-ai-job-scout.streamlit.app](https://sg-ai-job-scout.streamlit.app/)
+**Two front-ends:**
+- **Streamlit** (`app/`) — quick dashboard, deployed to [sg-ai-job-scout.streamlit.app](https://sg-ai-job-scout.streamlit.app/)
+- **Next.js** (`web/`, package `sg-data-ai-job-pulse`) — production dashboard, deployed to Vercel
+
+> **About the data.** MyCareersFuture is Singapore's government-mandated job portal. Under the [Fair Consideration Framework](https://www.mom.gov.sg/employment-practices/fair-consideration-framework), employers must post on MCF for at least 14 days before applying for an Employment Pass or S Pass. This dataset is therefore a **slice** of the SG market — skewed toward roles where employers are open to hiring foreign talent — not a complete picture.
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.30+-red)
+![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## Architecture
 
 ```
 sg-ai-job-scout/
-├── app/                          # Streamlit frontend
-│   ├── Home.py                   # Main entry point
-│   ├── pages/                    # Multi-page app
-│   │   ├── 1_Dashboard.py        # Overview metrics, new listings, charts
-│   │   ├── 2_Job_Explorer.py     # Filterable job browser with apply links
-│   │   ├── 3_Role_Taxonomy.py    # Skills heatmap & role analysis
-│   │   ├── 5_Company_Leaderboard.py  # Top hiring companies & profiles
-│   │   ├── 6_Jobs_For_You.py     # Personalised job matching
-│   │   ├── 8_AI_Skills_Deep_Dive.py  # 11-category AI skills taxonomy
-│   │   ├── 10_Learning_Roadmap.py    # Skill progression & learning paths
-│   │   └── 11_Market_Pulse.py    # Market landscape & industry adoption
-│   ├── pages_hidden/             # Preserved but hidden from nav
+├── app/                          # Streamlit frontend (focused, share-friendly)
+│   ├── Home.py                   # Landing + caveat + nav
+│   ├── pages/
+│   │   ├── 1_Dashboard.py        # Headline metrics, role mix, salary distribution, new listings
+│   │   └── 2_Job_Explorer.py     # Filterable job browser with apply links
+│   ├── pages_hidden/             # Older deep-dives (kept alive, hidden from nav)
+│   │   ├── 3_Role_Taxonomy.py
+│   │   ├── 5_Company_Leaderboard.py
+│   │   ├── 6_Jobs_For_You.py
 │   │   ├── 7_Skills_Gap.py
-│   │   └── 9_Skills_Salary_Premium.py
-│   ├── components/               # Reusable UI components
-│   │   ├── charts.py             # Plotly chart builders
-│   │   ├── filters.py            # Role scope toggle & job filters
-│   │   └── metrics.py            # Metric card row
+│   │   ├── 8_AI_Skills_Deep_Dive.py
+│   │   ├── 9_Skills_Salary_Premium.py
+│   │   ├── 10_Learning_Roadmap.py
+│   │   └── 11_Market_Pulse.py
+│   ├── components/               # Reusable UI (charts, filters, metrics)
 │   └── utils/                    # Config & Supabase client
-├── pipeline/                     # Data pipeline
+├── web/                          # Next.js 16 frontend (Vercel)
+│   ├── src/app/                  # App-router routes (Dashboard + Job Explorer in nav)
+│   ├── src/components/           # React UI (charts, salary-distribution, data-caveat)
+│   └── src/lib/                  # Supabase loader, salary helpers, taxonomy constants
+├── pipeline/                     # Data pipeline (shared by both front-ends)
 │   ├── scrapers/
-│   │   ├── base_scraper.py       # Abstract base with backoff
-│   │   └── mycareersfuture.py    # MCF API scraper (59 search terms)
+│   │   └── mycareersfuture.py    # MCF API scraper
 │   ├── classifier.py             # GPT-5-nano structured classification
 │   ├── ai_skills_analyzer.py     # 281-keyword AI skills taxonomy
 │   ├── skills_normalizer.py      # Canonical skill name mapping
 │   ├── snapshot.py               # Market snapshot aggregation
-│   ├── reclassify_others.py      # Re-classification utility
-│   └── run_pipeline.py           # Pipeline orchestrator
+│   └── run_pipeline.py           # Pipeline orchestrator (27 search terms)
 ├── sql/schema.sql                # Database DDL (run in Supabase)
 ├── .github/workflows/scrape.yml  # Automated scraping (daily at 2am UTC)
 ├── pyproject.toml
@@ -48,40 +52,37 @@ sg-ai-job-scout/
 └── .env.example
 ```
 
-**Data flow:** MyCareersFuture API → Supabase (raw_listings) → GPT-5-nano classifier → Supabase (classified_listings) → Snapshot aggregation → Streamlit dashboard
+**Data flow:** MyCareersFuture API → Supabase (`raw_listings`) → GPT-5-nano classifier → Supabase (`classified_listings`) → Snapshot aggregation → Streamlit + Next.js dashboards
 
-## Pages
+## Pages (visible in both front-ends)
 
 | Page | What it does |
 |------|-------------|
-| **Dashboard** | Market metrics, role & salary charts, "New This Week" table with apply links, work mode summary, AI-generated market briefing |
-| **Job Explorer** | Browse all jobs with filters (role, seniority, salary, skills, AI involvement). Each listing shows salary, work mode icon, skills tags, and direct apply link |
-| **Jobs for You** | Enter your skills → see matching jobs ranked by skill overlap, with green/red skill highlighting and apply links. Includes "Skills to Learn Next" recommendations |
-| **Roles & Skills** | Top skills bar chart, skills-by-role heatmap |
-| **Company Leaderboard** | Top hiring companies, company deep-dives with role breakdown, salary distribution, and open roles table |
-| **AI Skills Deep Dive** | 11-category AI taxonomy (Prompt Engineering → Responsible AI), tier breakdown, keyword analysis, AI skills by role heatmap |
-| **Learning Roadmap** | Skill progression heatmap by seniority, role-based learning paths with Foundation/Differentiator/Specialist tiers |
-| **Market Pulse** | AI salary premium, top 20 skills by demand, industry AI adoption |
+| **Dashboard** | Headline metrics, listings-by-role chart, **salary distribution histogram with click-through** (click a band to see the jobs in it), top skills, "New This Week" table, posting trend |
+| **Job Explorer** | Browse all jobs with filters (role, seniority, salary, skills, AI involvement). Each listing shows salary, work mode, skills tags, and a direct apply link |
+
+Older pages (Roles & Skills, AI Skills Deep Dive, Jobs For You, Company Leaderboard, Learning Roadmap, Market Pulse) are kept in the codebase but removed from navigation to keep the shared experience focused.
 
 ## Key Features
 
-- **Role scope filter** — defaults to Data & Analytics roles (Data Scientist, Data Analyst, Data Engineer, BI Analyst, Analytics Manager). Switch to All Roles or customize.
-- **AI involvement filter** — 4 levels: Uses AI to augment, Uses ML models, AI/LLM Engineering, MLOps & Infrastructure
-- **Direct apply links** — every listing links to the original MyCareersFuture posting
+- **Salary distribution + click-through** — bar chart of monthly salary bands (<$5k → $20k+), click any band to see the jobs in it
+- **MCF / FCF caveat banner** — every front-end surfaces the data scope honestly
+- **Direct apply links** — every listing links back to the original MCF posting
 - **Work mode indicators** — 🏠 Remote, 🔄 Hybrid, 🏢 Onsite
 - **281-keyword AI taxonomy** — 11 categories across 3 career tiers, sourced from Stanford AI Index 2025, PwC, Lightcast
-- **Skill matching** — 50%+ skill overlap = strong match in Jobs for You
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|-----------|
-| Frontend | Streamlit, Plotly |
+| Streamlit frontend | Streamlit, Plotly |
+| Next.js frontend | Next.js 16, React 19, Recharts, Tailwind v4 |
 | Database | Supabase (PostgreSQL) |
 | AI Classification | OpenAI GPT-5-nano (JSON mode, configurable) |
 | Data Source | MyCareersFuture.gov.sg (JSON API) |
 | Automation | GitHub Actions (cron: daily at 2am UTC) |
-| Language | Python 3.11+ |
+| Hosting | Streamlit Community Cloud + Vercel |
+| Language | Python 3.11+, TypeScript 5 |
 
 ## Setup
 
@@ -159,11 +160,19 @@ The pipeline runs automatically every day at 2 AM UTC.
 
 You can also trigger manually from Actions → Scrape & Classify → Run workflow.
 
-## Data Source
+## Data Source & Caveats
 
-- **[MyCareersFuture.gov.sg](https://www.mycareersfuture.gov.sg/)** — Singapore government job portal (JSON API)
-- 59 search terms covering AI, data science, analytics, ML, NLP, BI, and related fields
+- **[MyCareersFuture.gov.sg](https://www.mycareersfuture.gov.sg/)** — Singapore's government-mandated job portal (JSON API)
+- 27 search terms covering data science, analytics, ML, AI, NLP, BI, and related fields
 - ~2,100 listings classified across 11 role categories
+
+**Important:** MCF is required posting under the [Fair Consideration Framework](https://www.mom.gov.sg/employment-practices/fair-consideration-framework) for jobs that may go to Employment Pass or S Pass holders. The dataset is therefore biased toward:
+
+- Roles at salary tiers eligible for EP/S Pass
+- Employers willing to hire foreign professionals
+- Jobs not already filled via referral / internal mobility / executive search
+
+It does **not** represent the full Singapore job market.
 
 ## Disclaimer
 

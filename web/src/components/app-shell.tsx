@@ -4,27 +4,15 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
-  Brain,
   BriefcaseBusiness,
-  Building2,
-  Compass,
-  GraduationCap,
   LayoutDashboard,
-  Activity,
   Search,
-  Target,
 } from "lucide-react";
 import { useState, type MouseEvent, type ReactNode } from "react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/jobs", label: "Job Explorer", icon: Search },
-  { href: "/jobs-for-you", label: "Jobs For You", icon: Target },
-  { href: "/roles", label: "Roles & Skills", icon: Brain },
-  { href: "/companies", label: "Companies", icon: Building2 },
-  { href: "/ai-skills", label: "AI Skills", icon: Compass },
-  { href: "/learning-roadmap", label: "Learning Roadmap", icon: GraduationCap },
-  { href: "/market-pulse", label: "Market Pulse", icon: Activity },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -61,8 +49,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             <BriefcaseBusiness size={20} />
           </span>
           <span>
-            <span className="block text-sm font-semibold">SG Data Jobs</span>
-            <span className="block text-xs text-muted">AI market scout</span>
+            <span className="block text-sm font-semibold">SG Data & AI Job Pulse</span>
+            <span className="block text-xs text-muted">MCF / FCF live scan</span>
           </span>
         </Link>
         <nav className="mt-8 space-y-1">
@@ -106,7 +94,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-10 border-b border-line bg-[#14161b]/95 px-4 py-3 backdrop-blur lg:hidden">
         <div className="flex items-center justify-between">
           <Link href="/" className="font-semibold">
-            SG Data Jobs
+            SG Data & AI Job Pulse
           </Link>
           <BarChart3 size={20} className="text-accent" />
         </div>

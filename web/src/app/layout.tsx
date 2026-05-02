@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SG Data Jobs",
-  description: "Singapore AI, data, and analytics job market intelligence.",
+  title: "SG Data & AI Job Pulse",
+  description:
+    "A live look at Singapore's data, analytics and AI job listings, sourced from MyCareersFuture under the Fair Consideration Framework.",
 };
 
 export default function RootLayout({

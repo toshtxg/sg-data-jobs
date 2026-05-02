@@ -151,6 +151,58 @@ def create_volume_over_time_chart(snapshots: list[dict]) -> go.Figure:
     return fig
 
 
+SALARY_BINS = [
+    ("Under $5k", 0, 5000),
+    ("$5k–$7k", 5000, 7000),
+    ("$7k–$10k", 7000, 10000),
+    ("$10k–$15k", 10000, 15000),
+    ("$15k–$20k", 15000, 20000),
+    ("$20k+", 20000, float("inf")),
+]
+
+
+def assign_salary_bin(salary_min, salary_max) -> str | None:
+    """Pick a bin label using the midpoint of (min, max). Returns None if neither value is present."""
+    values = [v for v in (salary_min, salary_max) if v is not None]
+    if not values:
+        return None
+    midpoint = sum(float(v) for v in values) / len(values)
+    for label, lo, hi in SALARY_BINS:
+        if lo <= midpoint < hi:
+            return label
+    return None
+
+
+def create_salary_distribution_chart(bin_counts: dict[str, int]) -> go.Figure:
+    """Vertical bar chart of listing counts by salary bucket (SGD/month, midpoint)."""
+    if not bin_counts or sum(bin_counts.values()) == 0:
+        return _empty_figure("No salary data available")
+
+    labels = [label for label, _, _ in SALARY_BINS]
+    counts = [bin_counts.get(label, 0) for label in labels]
+    colors = [ROLE_COLORS[i % len(ROLE_COLORS)] for i in range(len(labels))]
+
+    fig = go.Figure(
+        go.Bar(
+            x=labels,
+            y=counts,
+            marker_color=colors,
+            text=counts,
+            textposition="outside",
+            hovertemplate="%{x}<br>%{y} listings<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        **LAYOUT_DEFAULTS,
+        title="Salary Distribution (SGD/month, midpoint)",
+        xaxis_title="Monthly salary band",
+        yaxis_title="Listings",
+        height=380,
+        clickmode="event+select",
+    )
+    return fig
+
+
 def create_skills_heatmap(df: pd.DataFrame) -> go.Figure:
     """Heatmap of skills vs roles."""
     if df.empty:

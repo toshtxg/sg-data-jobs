@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 from app.utils.supabase_client import get_client
 
 st.set_page_config(
-    page_title="SG AI Job Market Scout",
-    page_icon="\U0001f50d",
+    page_title="SG Data & AI Job Pulse",
+    page_icon="\U0001f4ca",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -88,16 +88,23 @@ with st.sidebar:
         )
     st.markdown("---")
 
-    st.markdown("## \U0001f50d SG AI Job Market Scout")
-    st.caption("Understanding Singapore's AI job market through data")
+    st.markdown("## \U0001f4ca SG Data & AI Job Pulse")
+    st.caption("A live look at Singapore's data, analytics & AI job listings")
     st.markdown("---")
 
     st.markdown("### About")
     st.markdown(
-        "Built to understand Singapore's AI job market. Uses LLMs to classify "
-        "unstructured job descriptions into structured, queryable data."
+        "Tracks data, analytics and AI job listings in Singapore. "
+        "LLMs classify unstructured job descriptions into structured, "
+        "queryable data."
     )
-    st.markdown("**Sources:** MyCareersFuture.gov.sg")
+    st.markdown("**Source:** MyCareersFuture.gov.sg")
+    st.caption(
+        "Heads up: MCF is the government-mandated portal for jobs that "
+        "may go to Employment Pass / S Pass holders under the Fair "
+        "Consideration Framework. It is a slice of the SG market — "
+        "not the whole picture."
+    )
     st.markdown(
         "**Methodology:** GPT-5-nano classifies each listing into role "
         "category, seniority, skills, and industry."
@@ -110,22 +117,27 @@ with st.sidebar:
     st.caption("Created by Tosh")
 
 # Home page
-st.markdown("# SG AI Job Market Scout")
+st.markdown("# SG Data & AI Job Pulse")
 st.markdown(
-    "Explore Singapore's AI, data science, and analytics job market "
-    "with structured insights derived from live job listings."
+    "A live look at Singapore's data, analytics and AI job listings — "
+    "structured from raw postings into queryable insights."
+)
+
+st.info(
+    "**About the data.** Listings come from "
+    "[MyCareersFuture.gov.sg](https://www.mycareersfuture.gov.sg/), "
+    "Singapore's government-mandated job portal. Under the Fair "
+    "Consideration Framework, employers must post here for at least "
+    "14 days before applying for an Employment Pass or S Pass. "
+    "This dataset is therefore a *slice* of the SG market — skewed "
+    "toward roles where employers are open to hiring foreign talent — "
+    "not a complete picture.",
+    icon="ℹ️",
 )
 
 st.markdown("### Navigate")
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 with col1:
     st.page_link("pages/1_Dashboard.py", label="\U0001f4ca Dashboard", width="stretch")
-    st.page_link("pages/3_Role_Taxonomy.py", label="\U0001f9e0 Roles & Skills", width="stretch")
-    st.page_link("pages/10_Learning_Roadmap.py", label="\U0001f5fa Learning Roadmap", width="stretch")
 with col2:
     st.page_link("pages/2_Job_Explorer.py", label="\U0001f50e Job Explorer", width="stretch")
-    st.page_link("pages/5_Company_Leaderboard.py", label="\U0001f3c6 Company Leaderboard", width="stretch")
-    st.page_link("pages/8_AI_Skills_Deep_Dive.py", label="\U0001f916 AI Skills Deep Dive", width="stretch")
-with col3:
-    st.page_link("pages/6_Jobs_For_You.py", label="\U0001f3af Jobs for You", width="stretch")
-    st.page_link("pages/11_Market_Pulse.py", label="\U0001f4a1 Market Pulse", width="stretch")

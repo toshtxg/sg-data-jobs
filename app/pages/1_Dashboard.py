@@ -7,13 +7,21 @@ from datetime import date, datetime, timedelta, timezone
 
 from app.utils.supabase_client import get_client
 from app.components.charts import (
+    SALARY_BINS,
+    assign_salary_bin,
     create_listings_by_role_chart,
     create_salary_comparison_chart,
+    create_salary_distribution_chart,
     create_volume_over_time_chart,
 )
 from app.components.metrics import render_metric_row
 
 st.header("Dashboard")
+st.caption(
+    "Source: MyCareersFuture.gov.sg — the government-mandated portal "
+    "for jobs that may go to Employment Pass / S Pass holders under the "
+    "Fair Consideration Framework. A slice of the SG market, not the whole."
+)
 
 
 def _parse_posting_date(value):
@@ -116,6 +124,31 @@ def load_recent_listings():
             return []
 
 
+@st.cache_data(ttl=3600)
+def load_jobs_for_salary():
+    """Load all classified listings with salary + role context for the salary histogram."""
+    client = get_client()
+    rows = []
+    page_size = 1000
+    offset = 0
+    while True:
+        resp = (
+            client.table("classified_listings")
+            .select(
+                "role_category, seniority_level, "
+                "raw_listings!listing_id(title, company, salary_min, salary_max, "
+                "posting_date, source_url)"
+            )
+            .range(offset, offset + page_size - 1)
+            .execute()
+        )
+        rows.extend(resp.data)
+        if len(resp.data) < page_size:
+            break
+        offset += page_size
+    return rows
+
+
 @st.cache_data(ttl=300)
 def load_latest_pull_timestamp():
     """Load most recent scrape timestamp from raw listings."""
@@ -209,6 +242,101 @@ with col2:
     avg_salary = latest.get("avg_salary_by_role") or {}
     fig = create_salary_comparison_chart(avg_salary)
     st.plotly_chart(fig, width="stretch")
+
+# --- Salary distribution (click a bar to filter) ---
+st.markdown("### Salary Distribution")
+salary_jobs_raw = load_jobs_for_salary()
+
+binned_jobs: dict[str, list[dict]] = {label: [] for label, _, _ in SALARY_BINS}
+no_salary_count = 0
+for r in salary_jobs_raw:
+    raw = r.get("raw_listings") or {}
+    if r.get("role_category") == "Other":
+        continue
+    bin_label = assign_salary_bin(raw.get("salary_min"), raw.get("salary_max"))
+    if bin_label is None:
+        no_salary_count += 1
+        continue
+    binned_jobs[bin_label].append(
+        {
+            "Title": raw.get("title", ""),
+            "Company": raw.get("company", "Unknown"),
+            "Role": r.get("role_category", ""),
+            "Seniority": r.get("seniority_level", ""),
+            "Salary Min": raw.get("salary_min"),
+            "Salary Max": raw.get("salary_max"),
+            "Posted": raw.get("posting_date", ""),
+            "Link": raw.get("source_url", ""),
+        }
+    )
+
+bin_counts = {label: len(jobs) for label, jobs in binned_jobs.items()}
+total_with_salary = sum(bin_counts.values())
+
+salary_caption = (
+    f"{total_with_salary:,} listings with salary disclosed · "
+    f"{no_salary_count:,} listings did not disclose a salary range"
+)
+st.caption(salary_caption)
+
+salary_fig = create_salary_distribution_chart(bin_counts)
+selection = st.plotly_chart(
+    salary_fig,
+    width="stretch",
+    on_select="rerun",
+    selection_mode="points",
+    key="salary_distribution_chart",
+)
+
+selected_bin = None
+points = (selection or {}).get("selection", {}).get("points") if selection else None
+if points:
+    selected_bin = points[0].get("x")
+
+if selected_bin and selected_bin in binned_jobs:
+    bin_jobs = binned_jobs[selected_bin]
+    st.markdown(f"#### {len(bin_jobs)} jobs in **{selected_bin}** band")
+    if bin_jobs:
+        bin_df = pd.DataFrame(
+            [
+                {
+                    "Title": j["Title"],
+                    "Company": j["Company"],
+                    "Role": j["Role"],
+                    "Seniority": j["Seniority"],
+                    "Salary": (
+                        f"${float(j['Salary Min']):,.0f}–${float(j['Salary Max']):,.0f}"
+                        if j["Salary Min"] is not None and j["Salary Max"] is not None
+                        else (
+                            f"Up to ${float(j['Salary Max']):,.0f}"
+                            if j["Salary Max"] is not None
+                            else f"From ${float(j['Salary Min']):,.0f}"
+                            if j["Salary Min"] is not None
+                            else "—"
+                        )
+                    ),
+                    "Posted": j["Posted"],
+                    "Link": j["Link"],
+                }
+                for j in sorted(
+                    bin_jobs,
+                    key=lambda x: x.get("Posted") or "",
+                    reverse=True,
+                )[:50]
+            ]
+        )
+        st.dataframe(
+            bin_df,
+            column_config={
+                "Link": st.column_config.LinkColumn("Apply", display_text="View →"),
+            },
+            width="stretch",
+            hide_index=True,
+        )
+        if len(bin_jobs) > 50:
+            st.caption(f"Showing 50 of {len(bin_jobs)} jobs in this band.")
+else:
+    st.caption("Click a bar to see jobs in that salary band.")
 
 # --- New This Week ---
 st.markdown("### New This Week")

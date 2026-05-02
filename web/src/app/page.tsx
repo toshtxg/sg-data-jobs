@@ -14,7 +14,13 @@ import {
   isRecentListing,
   skillCounts,
 } from "@/lib/market";
+import { assignSalaryBin, SALARY_BINS } from "@/lib/salary";
 import { HorizontalBars, PostingTrend, VerticalBars } from "@/components/charts";
+import { DataCaveat } from "@/components/data-caveat";
+import {
+  SalaryDistribution,
+  type SalaryDistributionJob,
+} from "@/components/salary-distribution";
 import { Badge, EmptyState, MetricCard, PageHeader, Panel, SectionTitle } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -43,14 +49,50 @@ export default async function DashboardPage() {
   );
   const postingTrend = buildPostingTrend(clientListings);
 
+  const salaryBinCounts: Record<string, number> = Object.fromEntries(
+    SALARY_BINS.map((bin) => [bin.label, 0]),
+  );
+  const salaryBinJobs: Record<string, SalaryDistributionJob[]> =
+    Object.fromEntries(
+      SALARY_BINS.map((bin) => [bin.label, [] as SalaryDistributionJob[]]),
+    );
+  let noSalaryCount = 0;
+  for (const row of clientListings) {
+    if (row.role_category === "Other") continue;
+    const bin = assignSalaryBin(row.raw.salary_min, row.raw.salary_max);
+    if (bin === null) {
+      noSalaryCount += 1;
+      continue;
+    }
+    salaryBinCounts[bin] = (salaryBinCounts[bin] ?? 0) + 1;
+    salaryBinJobs[bin].push({
+      id: row.id || `${row.raw.source_url ?? ""}-${row.raw.title ?? ""}`,
+      title: row.raw.title ?? "",
+      company: row.raw.company ?? "Unknown",
+      role: row.role_category ?? "",
+      seniority: row.seniority_level ?? "",
+      salary_min: row.raw.salary_min,
+      salary_max: row.raw.salary_max,
+      posting_date: row.raw.posting_date ?? null,
+      source_url: row.raw.source_url ?? null,
+    });
+  }
+  for (const label of Object.keys(salaryBinJobs)) {
+    salaryBinJobs[label].sort((a, b) =>
+      (b.posting_date ?? "").localeCompare(a.posting_date ?? ""),
+    );
+  }
+
   return (
     <>
-      <PageHeader title="Singapore AI & Data Job Market" eyebrow="Live market dashboard">
+      <PageHeader title="Singapore Data & AI Job Pulse" eyebrow="Live market dashboard">
         <div className="flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-2 text-sm text-muted">
           <Clock size={16} />
           Latest pull {latestPull ? formatAge(latestPull) : "unknown"}
         </div>
       </PageHeader>
+
+      <DataCaveat />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Tracked listings" value={clientListings.length.toLocaleString()} detail="Classified jobs in Supabase" />
@@ -67,6 +109,17 @@ export default async function DashboardPage() {
         <Panel>
           <SectionTitle>Top Technical Skills</SectionTitle>
           <VerticalBars data={topSkills.slice(0, 12)} />
+        </Panel>
+      </div>
+
+      <div className="mt-6">
+        <Panel>
+          <SectionTitle>Salary Distribution</SectionTitle>
+          <SalaryDistribution
+            binCounts={salaryBinCounts}
+            binJobs={salaryBinJobs}
+            noSalaryCount={noSalaryCount}
+          />
         </Panel>
       </div>
 
