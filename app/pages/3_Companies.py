@@ -12,6 +12,8 @@ from app.utils.supabase_client import get_client
 st.header("Companies")
 st.markdown("Who's hiring data & AI talent in Singapore, and how often?")
 
+MAX_BARS = 30
+
 
 @st.cache_data(ttl=3600)
 def load_company_data():
@@ -64,11 +66,11 @@ for row in raw_data:
             "salary_max": float(raw["salary_max"]) if raw.get("salary_max") is not None else None,
             "source_url": raw.get("source_url") or "",
             "posting_date": posting_date,
-            "posting_month": posting_date[:7] if posting_date else "",
         }
     )
 
 df = pd.DataFrame(rows)
+df["posting_dt"] = pd.to_datetime(df["posting_date"], errors="coerce")
 
 # ---------------------------------------------------------------------------
 # Company rankings
@@ -135,22 +137,57 @@ with col_profile:
         m3.metric("Top skill", top_skill)
 
         # --- Posting history timeline ---
-        if cdf["posting_month"].notna().any() and (cdf["posting_month"] != "").any():
+        dated = cdf[cdf["posting_dt"].notna()].copy()
+        if not dated.empty:
+            st.markdown("#### Posting History")
+            granularity = st.radio(
+                "Granularity",
+                ["Daily", "Weekly", "Monthly", "Yearly"],
+                index=2,
+                horizontal=True,
+                key="timeline_granularity",
+            )
+
+            if granularity == "Daily":
+                dated["bucket"] = dated["posting_dt"].dt.strftime("%Y-%m-%d")
+                label_fmt = "%d %b"
+            elif granularity == "Weekly":
+                # floor to Monday of each week
+                dated["bucket"] = (
+                    dated["posting_dt"] - pd.to_timedelta(
+                        (dated["posting_dt"].dt.dayofweek).astype(int), unit="d"
+                    )
+                ).dt.strftime("%Y-%m-%d")
+                label_fmt = "%d %b"
+            elif granularity == "Monthly":
+                dated["bucket"] = dated["posting_dt"].dt.strftime("%Y-%m")
+                label_fmt = "%b '%y"
+            else:  # Yearly
+                dated["bucket"] = dated["posting_dt"].dt.strftime("%Y")
+                label_fmt = "%Y"
+
             timeline = (
-                cdf[cdf["posting_month"] != ""]
-                .groupby("posting_month")
+                dated.groupby("bucket")
                 .size()
                 .reset_index(name="count")
-                .sort_values("posting_month")
+                .sort_values("bucket")
+                .tail(MAX_BARS)
             )
-            timeline["label"] = pd.to_datetime(
-                timeline["posting_month"], format="%Y-%m"
-            ).dt.strftime("%b %y")
 
-            if len(timeline) > 1:
-                st.markdown("#### Posting History")
-                colors = ["#0ea5e9"] * len(timeline)
-                colors[-1] = "#14b8a6"  # highlight most recent month
+            if granularity in ("Daily", "Weekly"):
+                timeline["label"] = pd.to_datetime(
+                    timeline["bucket"], errors="coerce"
+                ).dt.strftime(label_fmt)
+            elif granularity == "Monthly":
+                timeline["label"] = pd.to_datetime(
+                    timeline["bucket"] + "-01", errors="coerce"
+                ).dt.strftime(label_fmt)
+            else:
+                timeline["label"] = timeline["bucket"]
+
+            if len(timeline) >= 1:
+                colors = ["rgba(14,165,233,0.55)"] * len(timeline)
+                colors[-1] = "#14b8a6"  # highlight most recent period
                 fig_timeline = go.Figure(
                     go.Bar(
                         x=timeline["label"],
@@ -160,6 +197,12 @@ with col_profile:
                         textposition="outside",
                     )
                 )
+                caption = {
+                    "Daily": f"Daily postings — last {MAX_BARS} days shown",
+                    "Weekly": f"Weekly postings — last {MAX_BARS} weeks shown",
+                    "Monthly": f"Monthly postings — last {MAX_BARS} months shown",
+                    "Yearly": "Yearly posting totals",
+                }[granularity]
                 fig_timeline.update_layout(
                     template="plotly_dark",
                     paper_bgcolor="rgba(0,0,0,0)",
@@ -170,6 +213,7 @@ with col_profile:
                     yaxis_title="Postings",
                     showlegend=False,
                 )
+                st.caption(caption)
                 st.plotly_chart(fig_timeline, use_container_width=True)
 
         # --- Role breakdown ---

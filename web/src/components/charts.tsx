@@ -44,7 +44,7 @@ export function HorizontalBars({ data }: { data: ChartDatum[] }) {
     <div className="h-[360px] w-full">
       <ResponsiveContainer>
         <BarChart
-          data={[...data].reverse()}
+          data={data}
           layout="vertical"
           margin={{ left: 18, right: 24, top: 8, bottom: 8 }}
         >
