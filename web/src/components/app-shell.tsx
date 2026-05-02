@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
+  Building2,
   BriefcaseBusiness,
   LayoutDashboard,
   Search,
@@ -13,6 +14,7 @@ import { useState, type MouseEvent, type ReactNode } from "react";
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/jobs", label: "Job Explorer", icon: Search },
+  { href: "/companies", label: "Companies", icon: Building2 },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -50,7 +52,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           </span>
           <span>
             <span className="block text-sm font-semibold">SG Data & AI Job Pulse</span>
-            <span className="block text-xs text-muted">MCF / FCF live scan</span>
           </span>
         </Link>
         <nav className="mt-8 space-y-1">

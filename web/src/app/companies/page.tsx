@@ -8,7 +8,7 @@ export default async function CompaniesPage() {
   const listings = compactListingsForClient(await loadClassifiedListings());
   return (
     <>
-      <PageHeader title="Company Leaderboard" eyebrow="Hiring companies and role profiles" />
+      <PageHeader title="Companies" eyebrow="Who's hiring and how often" />
       <CompanyLeaderboard listings={listings} />
     </>
   );
