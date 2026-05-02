@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SG Data & AI Job Pulse Web App
 
-## Getting Started
+This is the production frontend for SG Data & AI Job Pulse. It is a Next.js 16 App Router application deployed on Vercel.
 
-First, run the development server:
+- Production: [https://sg-data-jobs.vercel.app](https://sg-data-jobs.vercel.app)
+- Companies: [https://sg-data-jobs.vercel.app/companies](https://sg-data-jobs.vercel.app/companies)
+
+## Status
+
+This is the live product surface. The repository's older Streamlit app is legacy/local reference only and is not the production solution.
+
+## Stack
+
+- Next.js 16
+- React 19
+- Tailwind CSS v4
+- Recharts
+- Supabase
+- Vercel
+
+## Routes
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Dashboard with market metrics, role mix, salary distribution, skills, new listings, and posting trend |
+| `/jobs` | Filterable job explorer with direct MyCareersFuture links |
+| `/companies` | Company leaderboard, company profiles, posting history, role mix, skill mix, and recent listings |
+
+Additional analysis routes exist in the app directory, but the production navigation is focused on the routes above.
+
+## Local Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Create `web/.env.local`:
+
+```bash
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_KEY="your-anon-key"
+OPENAI_API_KEY="sk-your-key"
+OPENAI_SUMMARY_MODEL="gpt-5-nano"
+```
+
+Run the dev server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Verification
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run build
+```
 
-## Learn More
+## Vercel Deployment
 
-To learn more about Next.js, take a look at the following resources:
+Vercel should be configured with:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Framework preset: Next.js
+- Root directory: `web`
+- Build command: `npm run build`
+- Install command: `npm install`
+- Output directory: Next.js default
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Required environment variables:
 
-## Deploy on Vercel
+```bash
+SUPABASE_URL
+SUPABASE_KEY
+OPENAI_API_KEY
+OPENAI_SUMMARY_MODEL
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The current production deployment is:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+[https://sg-data-jobs.vercel.app](https://sg-data-jobs.vercel.app)
