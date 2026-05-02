@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { ROLE_COLORS } from "@/lib/constants";
 import { formatSalaryRange, SALARY_BINS } from "@/lib/salary";
+import { safeJobSourceUrl } from "@/lib/security";
 
 const axis = { fill: "#a1a1aa", fontSize: 12 };
 const grid = "rgba(255,255,255,0.08)";
@@ -141,29 +142,39 @@ export function SalaryDistribution({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
-                  {selectedJobs.slice(0, 50).map((job) => (
-                    <tr key={job.id}>
-                      <td className="py-2 pr-4">
-                        <a
-                          href={job.source_url || "#"}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-medium text-foreground hover:text-accent"
-                        >
-                          {job.title || "Untitled role"}
-                        </a>
-                        <div className="text-xs text-muted">{job.role}</div>
-                      </td>
-                      <td className="py-2 pr-4 text-muted">{job.company || "Unknown"}</td>
-                      <td className="py-2 pr-4 text-muted">{job.seniority || "—"}</td>
-                      <td className="py-2 pr-4 text-muted">
-                        {formatSalaryRange(job.salary_min, job.salary_max)}
-                      </td>
-                      <td className="py-2 pr-4 text-muted">
-                        {job.posting_date || "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  {selectedJobs.slice(0, 50).map((job) => {
+                    const sourceUrl = safeJobSourceUrl(job.source_url);
+
+                    return (
+                      <tr key={job.id}>
+                        <td className="py-2 pr-4">
+                          {sourceUrl ? (
+                            <a
+                              href={sourceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-foreground hover:text-accent"
+                            >
+                              {job.title || "Untitled role"}
+                            </a>
+                          ) : (
+                            <span className="font-medium text-foreground">
+                              {job.title || "Untitled role"}
+                            </span>
+                          )}
+                          <div className="text-xs text-muted">{job.role}</div>
+                        </td>
+                        <td className="py-2 pr-4 text-muted">{job.company || "Unknown"}</td>
+                        <td className="py-2 pr-4 text-muted">{job.seniority || "—"}</td>
+                        <td className="py-2 pr-4 text-muted">
+                          {formatSalaryRange(job.salary_min, job.salary_max)}
+                        </td>
+                        <td className="py-2 pr-4 text-muted">
+                          {job.posting_date || "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
               {selectedJobs.length > 50 ? (

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ExternalLink, Target } from "lucide-react";
 import { ROLE_CATEGORIES, SENIORITY_LEVELS, WORK_MODES } from "@/lib/constants";
 import { compactSalary, formatDate, uniqueSkills } from "@/lib/market";
+import { safeJobSourceUrl } from "@/lib/security";
 import type { ClassifiedListing } from "@/lib/types";
 import { Badge, EmptyState, Panel } from "@/components/ui";
 
@@ -130,32 +131,36 @@ export function JobsForYou({ listings }: { listings: ClassifiedListing[] }) {
 function MatchList({ rows, compact = false }: { rows: MatchRow[]; compact?: boolean }) {
   return (
     <div className="space-y-3">
-      {rows.map((match) => (
-        <article key={match.listing.id || match.listing.raw.source_url} className="rounded-lg border border-line bg-panel-strong p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h3 className="font-semibold">{match.listing.raw.title || "Untitled role"}</h3>
-              <div className="mt-1 text-sm text-muted">
-                {match.listing.raw.company || "Unknown"} · {compactSalary(match.listing.raw.salary_min, match.listing.raw.salary_max)} · {formatDate(match.listing.raw.posting_date)}
+      {rows.map((match) => {
+        const sourceUrl = safeJobSourceUrl(match.listing.raw.source_url);
+
+        return (
+          <article key={match.listing.id || match.listing.raw.source_url} className="rounded-lg border border-line bg-panel-strong p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="font-semibold">{match.listing.raw.title || "Untitled role"}</h3>
+                <div className="mt-1 text-sm text-muted">
+                  {match.listing.raw.company || "Unknown"} · {compactSalary(match.listing.raw.salary_min, match.listing.raw.salary_max)} · {formatDate(match.listing.raw.posting_date)}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge>{Math.round(match.pct * 100)}% match</Badge>
+                {sourceUrl && (
+                  <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent">
+                    <ExternalLink size={17} />
+                  </a>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge>{Math.round(match.pct * 100)}% match</Badge>
-              {match.listing.raw.source_url && (
-                <a href={match.listing.raw.source_url} target="_blank" rel="noreferrer" className="text-accent">
-                  <ExternalLink size={17} />
-                </a>
-              )}
-            </div>
-          </div>
-          {!compact && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {match.matched.map((skill) => <span key={skill} className="rounded-md bg-[#064e3b] px-2 py-1 text-xs text-emerald-100">{skill}</span>)}
-              {match.missing.slice(0, 12).map((skill) => <span key={skill} className="rounded-md bg-[#4a1d23] px-2 py-1 text-xs text-rose-100">{skill}</span>)}
-            </div>
-          )}
-        </article>
-      ))}
+            {!compact && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {match.matched.map((skill) => <span key={skill} className="rounded-md bg-[#064e3b] px-2 py-1 text-xs text-emerald-100">{skill}</span>)}
+                {match.missing.slice(0, 12).map((skill) => <span key={skill} className="rounded-md bg-[#4a1d23] px-2 py-1 text-xs text-rose-100">{skill}</span>)}
+              </div>
+            )}
+          </article>
+        );
+      })}
     </div>
   );
 }

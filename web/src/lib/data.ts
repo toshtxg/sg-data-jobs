@@ -144,10 +144,12 @@ async function fetchRawListings(
   return rawById;
 }
 
-export async function loadClassifiedListings(options: LoadListingOptions = {}) {
+async function loadClassifiedListingsUncached(
+  includeDescription: boolean,
+  limit: number | null,
+) {
   const supabase = getSupabaseClient();
-  const { includeDescription = false, limit } = options;
-  const classifiedRows = await fetchClassifiedRows(supabase, limit);
+  const classifiedRows = await fetchClassifiedRows(supabase, limit ?? undefined);
   const listingIds = [
     ...new Set(classifiedRows.map((row) => row.listing_id).filter(Boolean) as string[]),
   ];
@@ -159,6 +161,19 @@ export async function loadClassifiedListings(options: LoadListingOptions = {}) {
       row.listing_id ? rawById.get(row.listing_id) : null,
       includeDescription,
     ),
+  );
+}
+
+const loadClassifiedListingsCached = unstable_cache(
+  loadClassifiedListingsUncached,
+  ["classified-listings"],
+  { revalidate: 900 },
+);
+
+export function loadClassifiedListings(options: LoadListingOptions = {}) {
+  return loadClassifiedListingsCached(
+    Boolean(options.includeDescription),
+    options.limit ?? null,
   );
 }
 

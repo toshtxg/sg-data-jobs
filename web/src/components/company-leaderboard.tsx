@@ -12,6 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import { compactSalary, countBy, formatDate, skillCounts, topCounts } from "@/lib/market";
+import { safeJobSourceUrl } from "@/lib/security";
 import type { ClassifiedListing } from "@/lib/types";
 import { HorizontalBars, VerticalBars } from "@/components/charts";
 import { Badge, EmptyState, Panel, SectionTitle } from "@/components/ui";
@@ -258,30 +259,34 @@ export function CompanyLeaderboard({ listings }: { listings: ClassifiedListing[]
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {companyRows.slice(0, 50).map((row) => (
-                  <tr key={row.id || row.raw.source_url}>
-                    <td className="py-3 pr-4 font-medium">{row.raw.title || "Untitled"}</td>
-                    <td className="py-3 pr-4">
-                      <Badge>{row.role_category}</Badge>
-                    </td>
-                    <td className="py-3 pr-4 text-muted">
-                      {compactSalary(row.raw.salary_min, row.raw.salary_max)}
-                    </td>
-                    <td className="py-3 pr-4 text-muted">{formatDate(row.raw.posting_date)}</td>
-                    <td className="py-3 pr-4">
-                      {row.raw.source_url && (
-                        <a
-                          href={row.raw.source_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-accent"
-                        >
-                          <ExternalLink size={16} />
-                        </a>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {companyRows.slice(0, 50).map((row) => {
+                  const sourceUrl = safeJobSourceUrl(row.raw.source_url);
+
+                  return (
+                    <tr key={row.id || row.raw.source_url}>
+                      <td className="py-3 pr-4 font-medium">{row.raw.title || "Untitled"}</td>
+                      <td className="py-3 pr-4">
+                        <Badge>{row.role_category}</Badge>
+                      </td>
+                      <td className="py-3 pr-4 text-muted">
+                        {compactSalary(row.raw.salary_min, row.raw.salary_max)}
+                      </td>
+                      <td className="py-3 pr-4 text-muted">{formatDate(row.raw.posting_date)}</td>
+                      <td className="py-3 pr-4">
+                        {sourceUrl && (
+                          <a
+                            href={sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-accent"
+                          >
+                            <ExternalLink size={16} />
+                          </a>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

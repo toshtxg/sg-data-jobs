@@ -10,7 +10,7 @@ export function DataCaveat() {
         <a
           href="https://www.mycareersfuture.gov.sg/"
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           className="text-accent hover:underline"
         >
           MyCareersFuture.gov.sg

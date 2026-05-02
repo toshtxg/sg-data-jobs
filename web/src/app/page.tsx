@@ -15,6 +15,7 @@ import {
   skillCounts,
 } from "@/lib/market";
 import { assignSalaryBin, SALARY_BINS } from "@/lib/salary";
+import { safeJobSourceUrl } from "@/lib/security";
 import { HorizontalBars, PostingTrend, VerticalBars } from "@/components/charts";
 import { DataCaveat } from "@/components/data-caveat";
 import {
@@ -139,19 +140,29 @@ export default async function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
-                  {recent.map((row) => (
-                    <tr key={row.id || row.raw.source_url}>
-                      <td className="py-3 pr-4">
-                        <a href={row.raw.source_url || "#"} target="_blank" rel="noreferrer" className="font-medium text-foreground hover:text-accent">
-                          {row.raw.title || "Untitled role"}
-                        </a>
-                      </td>
-                      <td className="py-3 pr-4 text-muted">{row.raw.company || "Unknown"}</td>
-                      <td className="py-3 pr-4"><Badge>{row.role_category}</Badge></td>
-                      <td className="py-3 pr-4 text-muted">{compactSalary(row.raw.salary_min, row.raw.salary_max)}</td>
-                      <td className="py-3 pr-4 text-muted">{formatDate(row.raw.posting_date)}</td>
-                    </tr>
-                  ))}
+                  {recent.map((row) => {
+                    const sourceUrl = safeJobSourceUrl(row.raw.source_url);
+
+                    return (
+                      <tr key={row.id || row.raw.source_url}>
+                        <td className="py-3 pr-4">
+                          {sourceUrl ? (
+                            <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-foreground hover:text-accent">
+                              {row.raw.title || "Untitled role"}
+                            </a>
+                          ) : (
+                            <span className="font-medium text-foreground">
+                              {row.raw.title || "Untitled role"}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4 text-muted">{row.raw.company || "Unknown"}</td>
+                        <td className="py-3 pr-4"><Badge>{row.role_category}</Badge></td>
+                        <td className="py-3 pr-4 text-muted">{compactSalary(row.raw.salary_min, row.raw.salary_max)}</td>
+                        <td className="py-3 pr-4 text-muted">{formatDate(row.raw.posting_date)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
