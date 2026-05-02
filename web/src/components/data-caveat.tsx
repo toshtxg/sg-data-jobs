@@ -15,7 +15,7 @@ export function DataCaveat() {
         >
           MyCareersFuture.gov.sg
         </a>
-        , Singapore's government-mandated job portal. Under the Fair
+        , Singapore&apos;s government-mandated job portal. Under the Fair
         Consideration Framework, employers must post here for at least 14 days
         before applying for an Employment Pass or S Pass. This dataset is
         therefore a slice of the SG market — skewed toward roles where

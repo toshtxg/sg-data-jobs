@@ -82,7 +82,7 @@ export function CompanyLeaderboard({ listings }: { listings: ClassifiedListing[]
   }, [listings]);
 
   const [selected, setSelected] = useState(companies[0]?.name || "");
-  const [granularity, setGranularity] = useState<Granularity>("monthly");
+  const [granularity, setGranularity] = useState<Granularity>("weekly");
 
   const companyRows = useMemo(
     () =>
