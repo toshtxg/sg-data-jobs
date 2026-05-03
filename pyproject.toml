@@ -1,7 +1,7 @@
 [project]
-name = "sg-ai-job-scout"
+name = "sg-data-jobs"
 version = "0.1.0"
-description = "Singapore AI Job Market Scout — scrape, classify, and visualize AI/data job listings"
+description = "Singapore Data & AI Job Pulse — scrape, classify, and visualize data/AI job listings"
 requires-python = ">=3.11"
 dependencies = [
     "streamlit>=1.30.0",

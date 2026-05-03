@@ -21,7 +21,7 @@ The older `app/` Streamlit code is retained only as legacy/local reference while
 ## Architecture
 
 ```
-sg-ai-job-scout/
+sg-data-jobs/
 ├── web/                          # Production Next.js 16 frontend on Vercel
 │   ├── src/app/                  # App Router routes
 │   ├── src/components/           # React UI, charts, tables, filters
@@ -80,8 +80,8 @@ Additional analysis routes exist in the codebase for roles, AI skills, jobs-for-
 ### 1. Clone and install the pipeline
 
 ```bash
-git clone https://github.com/toshtxg/sg-ai-job-scout.git
-cd sg-ai-job-scout
+git clone https://github.com/toshtxg/sg-data-jobs.git
+cd sg-data-jobs
 python3 -m venv venv
 source venv/bin/activate
 pip install -e .
