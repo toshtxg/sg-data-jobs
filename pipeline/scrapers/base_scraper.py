@@ -6,6 +6,13 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+# (connect, read) seconds. MCF often takes >15s to answer a cold 100-result
+# query, so a short read timeout made every retry time out the same way.
+REQUEST_TIMEOUT = (10, 45)
+# After this many requests in a row exhaust their retries, treat the source as
+# down and skip its remaining requests so the run stays inside the job timeout.
+MAX_CONSECUTIVE_FAILED_REQUESTS = 3
+
 
 class BaseScraper(abc.ABC):
     """Abstract base for all job scrapers."""
@@ -15,6 +22,7 @@ class BaseScraper(abc.ABC):
     def __init__(self, delay: float = 2.0):
         self.delay = delay
         self._first_request = True
+        self._consecutive_failed_requests = 0
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -61,6 +69,8 @@ class BaseScraper(abc.ABC):
         max_retries: int = 3,
     ) -> requests.Response | None:
         """GET request with exponential backoff on failure."""
+        if self._consecutive_failed_requests >= MAX_CONSECUTIVE_FAILED_REQUESTS:
+            return None
         # Politeness delay between requests — sleep before each request except
         # the very first, so we never sleep after the final request of a run.
         if not self._first_request and self.delay > 0:
@@ -68,8 +78,9 @@ class BaseScraper(abc.ABC):
         self._first_request = False
         for attempt in range(max_retries):
             try:
-                resp = self.session.get(url, params=params, timeout=15)
+                resp = self.session.get(url, params=params, timeout=REQUEST_TIMEOUT)
                 resp.raise_for_status()
+                self._consecutive_failed_requests = 0
                 return resp
             except requests.RequestException as e:
                 wait = 2 ** attempt
@@ -79,6 +90,12 @@ class BaseScraper(abc.ABC):
                 )
                 time.sleep(wait)
         logger.error(f"[{self.source_name}] All {max_retries} retries failed for {url}")
+        self._consecutive_failed_requests += 1
+        if self._consecutive_failed_requests >= MAX_CONSECUTIVE_FAILED_REQUESTS:
+            logger.error(
+                f"[{self.source_name}] {self._consecutive_failed_requests} "
+                "requests failed in a row — skipping remaining requests this run"
+            )
         return None
 
     @staticmethod
