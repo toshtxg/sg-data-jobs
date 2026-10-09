@@ -6,6 +6,7 @@ Usage: python pipeline/run_pipeline.py
 import logging
 import os
 import sys
+import time
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
@@ -24,6 +25,14 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+# Classification stops starting new batches this many minutes after the
+# pipeline starts, leaving headroom under the workflow's 45-minute timeout for
+# in-flight batches and the snapshot. Unclassified listings carry over to the
+# next run.
+CLASSIFY_DEADLINE_MINUTES = float(
+    (os.environ.get("CLASSIFY_DEADLINE_MINUTES") or "35").strip()
+)
 
 SEARCH_TERMS = [
     # Data Science
@@ -179,6 +188,7 @@ def store_listings(
 
 
 def main():
+    started_at = time.monotonic()
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_KEY")
     if not url or not key:
@@ -226,7 +236,9 @@ def main():
     # --- Phase B: Classify ---
     logger.info("--- PHASE B: Classification ---")
     try:
-        classified_count = classify_unprocessed(client)
+        classified_count = classify_unprocessed(
+            client, deadline=started_at + CLASSIFY_DEADLINE_MINUTES * 60
+        )
         logger.info(f"Classified {classified_count} new listings")
     except ClassificationPipelineError as e:
         logger.error(f"Classification failed: {e}")
