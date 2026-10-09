@@ -225,3 +225,74 @@ def test_classify_batch_invalid_json_returns_all_none(fake_client):
     fake_client("this is not json{")
     out = classify_batch(_listings(2))
     assert out == [None, None]
+
+
+# ---------------------------------------------------------------------------
+# classify_unprocessed — concurrent waves and time budget
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def unprocessed_env(monkeypatch):
+    """Stub the DB fetch/store and the per-batch classifier call."""
+    stored: list[dict] = []
+    classified_batches: list[list[int]] = []
+
+    def _install(n_listings):
+        listings = [
+            {"id": i, "title": f"Job {i}", "posting_date": f"2026-01-{i + 1:02d}"}
+            for i in range(n_listings)
+        ]
+        monkeypatch.setattr(
+            classifier, "_fetch_unclassified_antijoin", lambda _c: list(listings)
+        )
+
+        def _store(_client, rows):
+            stored.extend(rows)
+            return len(rows)
+
+        def _classify(batch):
+            classified_batches.append([row["id"] for row in batch])
+            return [{"role_category": "Data Analyst"} for _ in batch]
+
+        monkeypatch.setattr(classifier, "_store_classification_rows", _store)
+        monkeypatch.setattr(classifier, "_classify_chunk", _classify)
+        monkeypatch.setattr(classifier, "REQUEST_DELAY_SECONDS", 0)
+        return stored, classified_batches
+
+    return _install
+
+
+def test_classify_unprocessed_classifies_every_batch_concurrently(unprocessed_env):
+    stored, batches = unprocessed_env(23)
+    count = classifier.classify_unprocessed(None, batch_size=5, concurrency=3)
+    assert count == 23
+    assert sorted(row["listing_id"] for row in stored) == list(range(23))
+    assert len(batches) == 5
+
+
+def test_classify_unprocessed_stops_at_deadline(unprocessed_env):
+    stored, batches = unprocessed_env(20)
+    # Deadline already passed: nothing is started, run still returns cleanly.
+    count = classifier.classify_unprocessed(
+        None, batch_size=5, concurrency=2, deadline=0.0
+    )
+    assert count == 0
+    assert stored == []
+    assert batches == []
+
+
+def test_classify_unprocessed_quota_error_raises_pipeline_error(
+    unprocessed_env, monkeypatch
+):
+    unprocessed_env(10)
+
+    class _QuotaError(classifier.APIError):
+        def __init__(self):
+            self.code = "insufficient_quota"
+
+    def _raise(_batch):
+        raise _QuotaError()
+
+    monkeypatch.setattr(classifier, "_classify_chunk", _raise)
+    with pytest.raises(classifier.ClassificationPipelineError):
+        classifier.classify_unprocessed(None, batch_size=5, concurrency=2)

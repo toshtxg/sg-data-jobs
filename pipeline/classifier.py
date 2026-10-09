@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from openai import OpenAI, APIError
 
@@ -30,7 +31,16 @@ DESCRIPTION_CHAR_LIMIT = int(
 REQUEST_DELAY_SECONDS = float(
     (os.environ.get("OPENAI_CLASSIFIER_REQUEST_DELAY_SECONDS") or "0.2").strip()
 )
-client = OpenAI(api_key=OPENAI_API_KEY)
+# Number of batch requests sent to OpenAI in parallel. Each gpt-5-nano batch
+# of 10 takes ~60-90s, so running them one at a time can't keep up with a
+# day's backlog inside the workflow timeout.
+CLASSIFICATION_CONCURRENCY = int(
+    (os.environ.get("OPENAI_CLASSIFIER_CONCURRENCY") or "4").strip()
+)
+REQUEST_TIMEOUT_SECONDS = float(
+    (os.environ.get("OPENAI_CLASSIFIER_REQUEST_TIMEOUT_SECONDS") or "180").strip()
+)
+client = OpenAI(api_key=OPENAI_API_KEY, timeout=REQUEST_TIMEOUT_SECONDS)
 _warned_upsert_fallback = False
 
 
@@ -380,10 +390,32 @@ def _fetch_unclassified_fallback(supabase_client, page_size: int = 1000) -> list
     return rows
 
 
+def _classify_chunk(batch: list[dict]) -> list[dict | None]:
+    if len(batch) == 1:
+        return [
+            classify_listing(
+                batch[0]["title"],
+                batch[0].get("company"),
+                batch[0].get("description"),
+            )
+        ]
+    return classify_batch(batch)
+
+
 def classify_unprocessed(
-    supabase_client, limit: int | None = None, batch_size: int | None = None
+    supabase_client,
+    limit: int | None = None,
+    batch_size: int | None = None,
+    concurrency: int | None = None,
+    deadline: float | None = None,
 ) -> int:
-    """Find and classify listings not yet in classified_listings."""
+    """Find and classify listings not yet in classified_listings.
+
+    Batches are sent to OpenAI `concurrency` at a time. If `deadline` (a
+    time.monotonic() timestamp) is given, no new batches are started once it
+    has passed; the remaining listings stay unclassified and are picked up by
+    the next run.
+    """
     try:
         unclassified = _fetch_unclassified_antijoin(supabase_client)
     except Exception as e:
@@ -428,60 +460,76 @@ def classify_unprocessed(
             batch_size,
         )
 
+    if concurrency is None:
+        concurrency = CLASSIFICATION_CONCURRENCY
+    if concurrency <= 0:
+        raise ValueError("concurrency must be positive")
+
+    batches = [
+        unclassified[offset : offset + batch_size]
+        for offset in range(0, len(unclassified), batch_size)
+    ]
+
     count = 0
+    processed = 0
     consecutive_failures = 0
-    for offset in range(0, len(unclassified), batch_size):
-        batch = unclassified[offset : offset + batch_size]
-        try:
-            if len(batch) == 1:
-                results = [
-                    classify_listing(
-                        batch[0]["title"],
-                        batch[0].get("company"),
-                        batch[0].get("description"),
+    with ThreadPoolExecutor(max_workers=concurrency) as executor:
+        for wave_start in range(0, len(batches), concurrency):
+            if deadline is not None and time.monotonic() >= deadline:
+                logger.warning(
+                    "Classification time budget reached: classified %s, "
+                    "%s listing(s) left for the next run.",
+                    count,
+                    len(unclassified) - processed,
+                )
+                break
+
+            wave = batches[wave_start : wave_start + concurrency]
+            try:
+                wave_results = list(executor.map(_classify_chunk, wave))
+            except APIError as e:
+                if e.code == "insufficient_quota":
+                    message = (
+                        f"Quota exhausted after classifying {count} listings. "
+                        f"{len(unclassified) - count} remain."
                     )
-                ]
-            else:
-                results = classify_batch(batch)
-        except APIError as e:
-            if e.code == "insufficient_quota":
-                message = (
-                    f"Quota exhausted after classifying {count} listings. "
-                    f"{len(unclassified) - count} remain."
+                    logger.error(message)
+                    raise ClassificationPipelineError(message) from e
+                wave_results = [[None] * len(batch) for batch in wave]
+
+            for batch, results in zip(wave, wave_results):
+                processed += len(batch)
+                rows_to_store = []
+                for listing, result in zip(batch, results):
+                    if result is None:
+                        continue
+                    result = _enforce_enums(result)
+                    rows_to_store.append(_build_classification_row(listing, result))
+
+                stored_count = _store_classification_rows(
+                    supabase_client, rows_to_store
                 )
-                logger.error(message)
-                raise ClassificationPipelineError(message) from e
-            results = [None] * len(batch)
+                if stored_count == 0:
+                    consecutive_failures += 1
+                    if consecutive_failures >= 5:
+                        message = (
+                            f"5 consecutive failures — stopping. "
+                            f"Classified {count} so far."
+                        )
+                        logger.error(message)
+                        raise ClassificationPipelineError(message)
+                    continue
 
-        rows_to_store = []
-        for listing, result in zip(batch, results):
-            if result is None:
-                continue
-            result = _enforce_enums(result)
-            rows_to_store.append(_build_classification_row(listing, result))
-
-        stored_count = _store_classification_rows(supabase_client, rows_to_store)
-        if stored_count == 0:
-            consecutive_failures += 1
-            if consecutive_failures >= 5:
-                message = (
-                    f"5 consecutive failures — stopping. Classified {count} so far."
+                consecutive_failures = 0
+                count += stored_count
+                logger.info(
+                    "Classification progress: processed %s/%s input listings, stored %s",
+                    processed,
+                    len(unclassified),
+                    count,
                 )
-                logger.error(message)
-                raise ClassificationPipelineError(message)
-            continue
 
-        consecutive_failures = 0
-        count += stored_count
-        processed = offset + len(batch)
-        logger.info(
-            "Classification progress: processed %s/%s input listings, stored %s",
-            processed,
-            len(unclassified),
-            count,
-        )
-
-        if REQUEST_DELAY_SECONDS > 0:
-            time.sleep(REQUEST_DELAY_SECONDS)
+            if REQUEST_DELAY_SECONDS > 0:
+                time.sleep(REQUEST_DELAY_SECONDS)
 
     return count
