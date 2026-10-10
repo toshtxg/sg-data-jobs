@@ -87,24 +87,38 @@ async function loadClassifiedListingsUncached(
     : "raw_listings!listing_id(title,company,salary_min,salary_max,salary_currency,source_url,posting_date,scraped_at)";
   const select = `id,listing_id,role_category,seniority_level,technical_skills,soft_skills,domain_knowledge,requires_ai_ml,remote_hybrid_onsite,industry,classified_at,model_used,${rawEmbed}`;
 
+  // Keyset pagination on (classified_at, id), backed by the
+  // classified_listings_classified_at_id_idx index. OFFSET paging re-sorted
+  // the whole table on every page and the deep pages ran into the anon
+  // role's 3s statement timeout.
   const pageSize = 1000;
-  let offset = 0;
   const rows: EmbeddedClassifiedRow[] = [];
+  let cursor: { classified_at: string; id: string } | null = null;
 
   while (true) {
     const nextPageSize = limit ? Math.min(pageSize, limit - rows.length) : pageSize;
     if (nextPageSize <= 0) break;
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("classified_listings")
       .select(select)
       .order("classified_at", { ascending: false })
-      .range(offset, offset + nextPageSize - 1);
+      .order("id", { ascending: false })
+      .limit(nextPageSize);
+    if (cursor) {
+      query = query.or(
+        `classified_at.lt."${cursor.classified_at}",and(classified_at.eq."${cursor.classified_at}",id.lt.${cursor.id})`,
+      );
+    }
 
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
-    rows.push(...((data || []) as unknown as EmbeddedClassifiedRow[]));
-    if (!data || data.length < nextPageSize) break;
-    offset += data.length;
+    const page = (data || []) as unknown as EmbeddedClassifiedRow[];
+    rows.push(...page);
+    if (page.length < nextPageSize) break;
+    const last = page[page.length - 1];
+    if (!last.classified_at || !last.id) break;
+    cursor = { classified_at: last.classified_at, id: last.id };
   }
 
   return rows.map((row) => {
