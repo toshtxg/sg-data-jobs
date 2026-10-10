@@ -48,6 +48,12 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Read-path indexes for the web app (latest pull + keyset pagination)
+CREATE INDEX IF NOT EXISTS raw_listings_scraped_at_idx
+    ON raw_listings (scraped_at DESC);
+CREATE INDEX IF NOT EXISTS classified_listings_classified_at_id_idx
+    ON classified_listings (classified_at DESC, id DESC);
+
 -- Row-Level Security
 -- Enable RLS on all tables (pipeline uses service_role key which bypasses RLS)
 ALTER TABLE raw_listings ENABLE ROW LEVEL SECURITY;
